@@ -1,9 +1,7 @@
 =begin
 what do we need?
-1. Support for Flickr upload
 2. 60-second loop
 3. integration testing
-4. delete file after uploading
 =end
 
 require_relative 'photostorage'
@@ -14,10 +12,8 @@ module Zaphod
     def initialize(params,log)
       @params = params
     	@log = log ||= STDOUT
-      # this is a demonstration only, polling one user.
-      # in a robust application, we'd cache or hit an endpoint
-      # to fetch the user-ids and access-tokens 
-      # of all the users who had oauthed our apps. 
+      # NOTE ig_access_token and flickr tokens would come from an API endpoint
+      # or cache pertaining to users who had oauthed this app.
       Instagram.configure do | instagram |
         instagram.client_id = @params['ig_client_id']
         instagram.access_token = @params['ig_access_token'] if @params.has_key?('ig_access_token')
@@ -54,7 +50,9 @@ module Zaphod
       	@log.debug("print out backtrace: #{e.backtrace}")
       end
     end  
-   
+
+    # creates a payload used throughout class.
+    # Returns [Hash]
     def set_payload(data)
       @payload = { 
         'caption'   => data['caption']['text'], 
@@ -63,31 +61,42 @@ module Zaphod
       }
       @log.debug("Payload is #{@payload}")
     end
- 
+
+    # uploads saved image to Flickr
+    # adds post ID to redis store
+    # deletes photo from tmp/
     def upload_to_flickr!
-      # download image to tmp
-      # upload to flickr
+      # download image to tmp/
       photo_path = download_from_instagram
       @log.debug("Path is #{photo_path}")
+      # upload to flickr
       flickr.access_token = @params['flickr_access_token']
       flickr.access_secret = @params['flickr_access_secret']
-      #flickr.upload_photo photo_path, :title => @payload['title'], :description => @payload['caption'] 
-      # push it into the Redii
+      response = flickr.upload_photo photo_path, :title => @payload['title'], :description => @payload['caption'] 
+      @log.debug("Flickr Response = #{response}")
+      # push it into the Redii and delete local version.
       add_to_storage
       File.delete(photo_path)
     end
 
+    # Checks Redis to see if post ID exists
+    # Returns [bool]
     def already_uploaded?
       false
       seen_before = Zaphod::PhotoStorage.get("seen_id_#{@post_id}","recommendation")
-      true if seen_before && seen_before == @post_id
+      if seen_before && seen_before == @post_id
+        @log.debug("already uploaded ID #{seen_before}... skipping")
+        true
+      end
     end
 
+    # add a specific post id to a new redis key
     def add_to_storage
       redis_hash = { "recommendation" => @post_id }
       Zaphod::PhotoStorage.add("seen_id_#{@post_id}",redis_hash)
     end
 
+    #GETs an image from a URI and writes to tmp/
     def download_from_instagram
       path = File.join(File.dirname(__FILE__),"tmp/#{@payload['title']}.jpg") 
       File.open(path, "wb") do |f| 

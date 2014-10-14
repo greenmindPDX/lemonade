@@ -1,6 +1,5 @@
 # launches our photo recommendation engine
 # usage bundle exec ruby photo_daemon.rb start
-# tail log/poster.log to view output
 require_relative 'init'
 require_relative './lib/photo_poster'
 
@@ -8,10 +7,9 @@ log_path = File.join( File.dirname( File.absolute_path(__FILE__) ), "log/poster.
 
 Daemons.run_proc('photo') do
   begin    
-    # @todo add flickr access token and secret
     cfg = {
-      'flickr_access_token'  => '', 
-      'flickr_access_secret' => '', 
+      'flickr_access_token'  => ENV['FLICKR_ACCESS_TOKEN'], 
+      'flickr_access_secret' => ENV['FLICKR_ACCESS_SECRET'], 
       'flickr_key'           => ENV['FLICKR_KEY'],
       'flickr_shared_secret' => ENV['FLICKR_SHARED_SECRET'],
       'ig_access_token'      => ENV['IG_ACCESS_TOKEN'],

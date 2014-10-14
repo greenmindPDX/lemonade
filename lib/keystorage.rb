@@ -4,15 +4,12 @@ module Zaphod
   class Keystorage
     attr_accessor :redis, :namespace
 
-    # Connect to  Redis server
+    # Creates a redis server connection
     def self.redis
       unless @redis
-        # @todo use enviro vars
         settings = {}
         settings[:host] = ENV['REDIS_HOST']
         settings[:port] = ENV['REDIS_PORT']
-        #password = cfg.redis_pwd
-        #settings[:password] = password unless password.nil?
         @redis = Redis.new(settings)
       end
       @redis
